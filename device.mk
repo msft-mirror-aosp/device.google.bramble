@@ -79,7 +79,6 @@ DEVICE_PACKAGE_OVERLAYS += $(LOCAL_PATH)/overlay
 #
 PRODUCT_COPY_FILES += \
     $(LOCAL_KERNEL):kernel \
-    $(LOCAL_PATH)/fstab.hardware:$(TARGET_COPY_OUT_RECOVERY)/root/first_stage_ramdisk/fstab.$(PRODUCT_PLATFORM) \
     $(LOCAL_PATH)/fstab.hardware:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.$(PRODUCT_PLATFORM) \
     $(LOCAL_PATH)/fstab.persist:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.persist \
     $(LOCAL_PATH)/init.hardware.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.$(PRODUCT_PLATFORM).rc \
@@ -308,6 +307,10 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     persist.vendor.radio.snapshot_enabled=0 \
     persist.vendor.radio.snapshot_timer=0
+
+# Enable USB debugging by default for bringup
+PRODUCT_PROPERTY_OVERRIDES += \
+    persist.sys.usb.config=adb
 
 PRODUCT_PACKAGES += \
     hwcomposer.lito \
@@ -596,7 +599,7 @@ PRODUCT_PACKAGES += \
     android.hardware.dumpstate@1.0-service.bramble
 
 # Citadel
-PRODUCT_PACKAGES += \
+#PRODUCT_PACKAGES += \
     citadeld \
     citadel_updater \
     android.hardware.authsecret@1.0-service.citadel \
@@ -606,7 +609,7 @@ PRODUCT_PACKAGES += \
     wait_for_strongbox
 
 # Citadel debug stuff
-PRODUCT_PACKAGES_DEBUG += \
+#PRODUCT_PACKAGES_DEBUG += \
     test_citadel
 
 # Storage: for factory reset protection feature
@@ -717,8 +720,6 @@ PRODUCT_PACKAGES += \
 # Reliability reporting
 PRODUCT_PACKAGES += \
     pixelstats-vendor
-
-PRODUCT_USE_DYNAMIC_PARTITIONS := true
 
 # fastbootd
 PRODUCT_PACKAGES += \
