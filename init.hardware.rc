@@ -463,6 +463,10 @@ on property:sys.boot_completed=1
     chown system system /dev/iaxxx-module-celldrv
     chmod 0660 /dev/iaxxx-module-celldrv
 
+    # Permission for bootloader logs
+    chown root log /proc/bldrlog
+    chmod 0444 /proc/bldrlog
+
 service vendor.per_mgr /vendor/bin/pm-service
     class core
     user system
@@ -699,8 +703,7 @@ service loc_launcher /vendor/bin/loc_launcher
     group gps
 
 # bugreport is triggered by holding down volume down, volume up and power
-service bugreport /system/bin/dumpstate -d -p -B -z \
-        -o /data/user_de/0/com.android.shell/files/bugreports/bugreport
+service bugreport /system/bin/dumpstate -d -p -z
     class main
     disabled
     oneshot
