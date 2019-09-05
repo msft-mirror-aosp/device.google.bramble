@@ -328,15 +328,17 @@ on early-boot
     chown system system /sys/class/leds/vibrator/device/vbatt_max
     chown system system /sys/class/leds/vibrator/device/vbatt_min
 
-    # Permission for Rainbow sensor
-    chown system system /sys/devices/platform/soc/ac4b000.qcom,cci/ac4b000.qcom,cci:st,rainbow@20/rainbow_enable
-    chmod 0660 /sys/devices/platform/soc/ac4a000.qcom,cci/ac4a000.qcom,cci:qcom,rainbow@20/rainbow_enable
-    chown system system /sys/devices/platform/soc/ac4b000.qcom,cci/ac4b000.qcom,cci:st,rainbow@20/rainbow_read_byte
-    chmod 0660 /sys/devices/platform/soc/ac4a000.qcom,cci/ac4a000.qcom,cci:qcom,rainbow@20/rainbow_read_byte
-    chown system system /sys/devices/platform/soc/ac4b000.qcom,cci/ac4b000.qcom,cci:st,rainbow@20/rainbow_write_byte
-    chmod 0660 /sys/devices/platform/soc/ac4b000.qcom,cci/ac4b000.qcom,cci:st,rainbow@20/rainbow_write_byte
+    # Permission for rainbow sensor
+    chown system system /sys/devices/platform/soc/994000.i2c/i2c-3/3-0020/rainbow_enable
+    chmod 0660 /sys/devices/platform/soc/994000.i2c/i2c-3/3-0020/rainbow_enable
+    chown system system /sys/devices/platform/soc/994000.i2c/i2c-3/3-0020/rainbow_read_byte
+    chmod 0660 /sys/devices/platform/soc/994000.i2c/i2c-3/3-0020/rainbow_read_byte
+    chown system system /sys/devices/platform/soc/994000.i2c/i2c-3/3-0020/rainbow_write_byte
+    chmod 0660 /sys/devices/platform/soc/994000.i2c/i2c-3/3-0020/rainbow_write_byte
     chown system system /dev/vd6281
     chmod 0660 /dev/vd6281
+    chown system system /mnt/vendor/persist/camera/rals_fac_test
+    chmod 0660 /mnt/vendor/persist/camera/rals_fac_test
 
     # Permission for Athletico
     chown system system /dev/sensor_tunnel
@@ -514,29 +516,23 @@ service sensors.qti /vendor/bin/sensors.qti
     # register QMI services
     capabilities NET_BIND_SERVICE
 
-service vendor.sscrpcd  /vendor/bin/sscrpcd sensorspd
-    class core
-    user system
-    group system
-
 service vendor.adsprpcd /vendor/bin/adsprpcd
    class main
-   user root
+   user system
    group media
-   setenv ADSP_LIBRARY_PATH /vendor/dsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp
 
 service vendor.adsprpcd_audiopd /vendor/bin/adsprpcd audiopd
    class main
    user media
    group media
 
-service vendor.cdsprpcd /vendor/bin/cdsprpcd
+service vendor.adsprpcd_sensorspd /vendor/bin/adsprpcd sensorspd
    class main
    user system
    group system
 
-service vendor.lowi /vendor/bin/sscrpcd
-   class core
+service vendor.cdsprpcd /vendor/bin/cdsprpcd
+   class main
    user system
    group system
 
