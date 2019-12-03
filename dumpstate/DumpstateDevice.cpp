@@ -132,9 +132,6 @@ void DumpstateDevice::dumpModem(int fd, int fdModem)
     if (!PropertiesHelper::IsUserBuild()) {
         char cmd[256] = { 0 };
 
-        RunCommandToFd(fd, "MODEM RFS INFO", {"/vendor/bin/find /data/vendor/rfs/mpss/OEMFI/"}, CommandOptions::WithTimeout(2).Build());
-        RunCommandToFd(fd, "MODEM DIAG SYSTEM PROPERTIES", {"/vendor/bin/getprop | grep vendor.sys.modem.diag"}, CommandOptions::WithTimeout(2).Build());
-
         android::base::SetProperty(MODEM_EFS_DUMP_PROPERTY, "true");
 
         const std::string diagLogDir = "/data/vendor/radio/diag_logs/logs";
@@ -450,7 +447,7 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     RunCommandToFd(fd, "ION HEAPS", {"/vendor/bin/sh", "-c", "for d in $(ls -d /d/ion/*); do for f in $(ls $d); do echo --- $d/$f; cat $d/$f; done; done"});
     DumpFileToFd(fd, "dmabuf info", "/d/dma_buf/bufinfo");
     DumpFileToFd(fd, "dmabuf process info", "/d/dma_buf/dmaprocs");
-    RunCommandToFd(fd, "Temperatures", {"/vendor/bin/sh", "-c", "for f in /sys/class/thermal/thermal* ; do type=`cat $f/type` ; temp=`cat $f/temp` ; echo \"$type: $temp\" ; done"});
+    //RunCommandToFd(fd, "Temperatures", {"/vendor/bin/sh", "-c", "for f in /sys/class/thermal/thermal* ; do type=`cat $f/type` ; temp=`cat $f/temp` ; echo \"$type: $temp\" ; done"});
     RunCommandToFd(fd, "Cooling Device Current State", {"/vendor/bin/sh", "-c", "for f in /sys/class/thermal/cooling* ; do type=`cat $f/type` ; temp=`cat $f/cur_state` ; echo \"$type: $temp\" ; done"});
     RunCommandToFd(
         fd, "LMH info",
