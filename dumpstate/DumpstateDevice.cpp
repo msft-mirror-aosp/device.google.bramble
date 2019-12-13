@@ -31,9 +31,9 @@
 
 #include "DumpstateUtil.h"
 
-#define MODEM_LOG_PREFIX_PROPERTY "ro.radio.log_prefix"
-#define MODEM_LOG_LOC_PROPERTY "ro.radio.log_loc"
-#define MODEM_LOGGING_SWITCH "persist.radio.smlog_switch"
+#define MODEM_LOG_PREFIX_PROPERTY "ro.vendor.radio.log_prefix"
+#define MODEM_LOG_LOC_PROPERTY "ro.vendor.radio.log_loc"
+#define MODEM_LOGGING_SWITCH "persist.vendor.radio.smlog_switch"
 
 #define DIAG_MDLOG_PERSIST_PROPERTY "persist.vendor.sys.modem.diag.mdlog"
 #define DIAG_MDLOG_PROPERTY "vendor.sys.modem.diag.mdlog"
@@ -465,7 +465,10 @@ Return<void> DumpstateDevice::dumpstateBoard(const hidl_handle& handle) {
     RunCommandToFd(fd, "Airbrush debug info", {"/vendor/bin/sh", "-c", "for f in `ls /sys/devices/platform/soc/c84000.i2c/i2c-4/4-0066/@(*curr|temperature|vbat|total_power)`; do echo \"$f: `cat $f`\" ; done; file=/d/airbrush/airbrush_sm/chip_state; echo \"$file: `cat $file`\""});
     DumpFileToFd(fd, "MDP xlogs", "/data/vendor/display/mdp_xlog");
     DumpFileToFd(fd, "TCPM logs", "/d/tcpm/usbpd0");
-    DumpFileToFd(fd, "PD Engine", "/d/pd_engine/usbpd0");
+    DumpFileToFd(fd, "PD Engine", "/d/logbuffer/usbpd");
+    DumpFileToFd(fd, "PPS", "/d/logbuffer/pps");
+    DumpFileToFd(fd, "BMS", "/d/logbuffer/ssoc");
+    DumpFileToFd(fd, "smblib", "/d/logbuffer/smblib");
     DumpFileToFd(fd, "ipc-local-ports", "/d/msm_ipc_router/dump_local_ports");
     RunCommandToFd(fd, "USB Device Descriptors", {"/vendor/bin/sh", "-c", "cd /sys/bus/usb/devices/1-1 && cat product && cat bcdDevice; cat descriptors | od -t x1 -w16 -N96"});
     RunCommandToFd(fd, "Power supply properties", {"/vendor/bin/sh", "-c", "for f in `ls /sys/class/power_supply/*/uevent` ; do echo \"------ $f\\n`cat $f`\\n\" ; done"});
