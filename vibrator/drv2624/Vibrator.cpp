@@ -59,8 +59,8 @@ static constexpr char WAVEFORM_DOUBLE_CLICK_EFFECT_SEQ[] = "3 0";
 static constexpr char WAVEFORM_HEAVY_CLICK_EFFECT_SEQ[] = "4 0";
 
 // UT team design those target G values
-static constexpr std::array<float, 5> EFFECT_TARGET_G = {0.19, 0.30, 0.39, 0.59, 0.75};
-static constexpr std::array<float, 3> STEADY_TARGET_G = {1.3, 1.145, 0.4};
+static constexpr std::array<float, 5> EFFECT_TARGET_G = {0.19, 0.30, 0.39, 0.66, 0.75};
+static constexpr std::array<float, 3> STEADY_TARGET_G = {1.5, 1.145, 0.82};
 
 struct SensorContext {
     ASensorEventQueue *queue;
@@ -70,10 +70,12 @@ static std::vector<float> sYAxleData;
 static uint64_t sEndTime = 0;
 static struct timespec sGetTime;
 
+#define MAX_VOLTAGE 3.2
 #define FLOAT_EPS 1e-7
 #define SENSOR_DATA_NUM 20
 // Set sensing period to 2s
 #define SENSING_PERIOD 2000000000
+#define VIBRATION_MOTION_TIME_THRESHOLD 100
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 int GSensorCallback(__attribute__((unused)) int fd, __attribute__((unused)) int events,
@@ -158,7 +160,7 @@ static float targetGToVlevelsUnderLinearEquation(std::array<float, 4> inputCoeff
     // 0 to 3.2 is our valid output
     float outPutVal = 0.0f;
     outPutVal = (targetG - inputCoeffs[1]) / inputCoeffs[0];
-    if ((outPutVal > FLOAT_EPS) && (outPutVal <= 3.2)) {
+    if ((outPutVal > FLOAT_EPS) && (outPutVal <= MAX_VOLTAGE)) {
         return outPutVal;
     } else {
         return 0.0f;
@@ -185,7 +187,7 @@ static float targetGToVlevelsUnderCubicEquation(std::array<float, 4> inputCoeffs
     if ((fabs(AA) <= FLOAT_EPS) && (fabs(BB) <= FLOAT_EPS)) {
         // Case 1: A = B = 0
         outPutVal = -inputCoeffs[1] / (3 * inputCoeffs[0]);
-        if ((outPutVal > FLOAT_EPS) && (outPutVal <= 3.2)) {
+        if ((outPutVal > FLOAT_EPS) && (outPutVal <= MAX_VOLTAGE)) {
             return outPutVal;
         }
         return 0.0f;
@@ -217,15 +219,15 @@ static float targetGToVlevelsUnderCubicEquation(std::array<float, 4> inputCoeffs
         sqrtA = sqrt(AA);
 
         outPutVal = (-inputCoeffs[1] - 2 * sqrtA * cosSita) / (3 * inputCoeffs[0]);
-        if ((outPutVal > FLOAT_EPS) && (outPutVal <= 3.2)) {
+        if ((outPutVal > FLOAT_EPS) && (outPutVal <= MAX_VOLTAGE)) {
             return outPutVal;
         }
         outPutVal = (-inputCoeffs[1] + sqrtA * (cosSita + sinSitaSqrt3)) / (3 * inputCoeffs[0]);
-        if ((outPutVal > FLOAT_EPS) && (outPutVal <= 3.2)) {
+        if ((outPutVal > FLOAT_EPS) && (outPutVal <= MAX_VOLTAGE)) {
             return outPutVal;
         }
         outPutVal = (-inputCoeffs[1] + sqrtA * (cosSita - sinSitaSqrt3)) / (3 * inputCoeffs[0]);
-        if ((outPutVal > FLOAT_EPS) && (outPutVal <= 3.2)) {
+        if ((outPutVal > FLOAT_EPS) && (outPutVal <= MAX_VOLTAGE)) {
             return outPutVal;
         }
         return 0.0f;
@@ -233,11 +235,11 @@ static float targetGToVlevelsUnderCubicEquation(std::array<float, 4> inputCoeffs
         // Case 4: Delta = 0
         K = BB / AA;
         outPutVal = (-inputCoeffs[1] / inputCoeffs[0] + K);
-        if ((outPutVal > FLOAT_EPS) && (outPutVal <= 3.2)) {
+        if ((outPutVal > FLOAT_EPS) && (outPutVal <= MAX_VOLTAGE)) {
             return outPutVal;
         }
         outPutVal = (-K / 2);
-        if ((outPutVal > FLOAT_EPS) && (outPutVal <= 3.2)) {
+        if ((outPutVal > FLOAT_EPS) && (outPutVal <= MAX_VOLTAGE)) {
             return outPutVal;
         }
         return 0.0f;
@@ -245,6 +247,13 @@ static float targetGToVlevelsUnderCubicEquation(std::array<float, 4> inputCoeffs
         // Exception handling
         return 0.0f;
     }
+}
+
+static float vLevelsToTargetGUnderCubicEquation(std::array<float, 4> inputCoeffs, float vLevel) {
+    float inputVoltage = 0.0f;
+    inputVoltage = vLevel * MAX_VOLTAGE;
+    return inputCoeffs[0] * pow(inputVoltage, 3) + inputCoeffs[1] * pow(inputVoltage, 2) +
+           inputCoeffs[2] * inputVoltage + inputCoeffs[3];
 }
 
 static bool motionAwareness() {
@@ -339,8 +348,21 @@ Vibrator::Vibrator(std::unique_ptr<HwApi> hwapi, std::unique_ptr<HwCal> hwcal)
         hasSteadyCoeffs = mHwCal->getSteadyCoeffs(&steadyCoeffs);
         if (hasSteadyCoeffs) {
             for (i = 0; i < 3; i++) {
-                // Use cubic approach to get the target voltage levels
-                tempVolLevel = targetGToVlevelsUnderCubicEquation(steadyCoeffs, STEADY_TARGET_G[i]);
+                // Use cubic approach to get the steady target voltage levels
+                // For steady level 3 voltage which is used for non-motion voltage, we use
+                // interpolation method to calculate the voltage via 20% of MAX
+                // voltage, 60% of MAX voltage and steady level 3 target G
+                if (i == 2) {
+                    tempVolLevel = ((STEADY_TARGET_G[2] -
+                                     vLevelsToTargetGUnderCubicEquation(steadyCoeffs, 0.2)) *
+                                    0.4 * MAX_VOLTAGE) /
+                                       (vLevelsToTargetGUnderCubicEquation(steadyCoeffs, 0.6) -
+                                        vLevelsToTargetGUnderCubicEquation(steadyCoeffs, 0.2)) +
+                                   0.2 * MAX_VOLTAGE;
+                } else {
+                    tempVolLevel =
+                        targetGToVlevelsUnderCubicEquation(steadyCoeffs, STEADY_TARGET_G[i]);
+                }
                 mSteadyTargetOdClamp[i] = convertLevelsToOdClamp(tempVolLevel, lraPeriod);
                 if ((mSteadyTargetOdClamp[i] <= 0) || (mSteadyTargetOdClamp[i] > longVoltageMax)) {
                     mSteadyTargetOdClamp[i] = longVoltageMax;
@@ -350,6 +372,10 @@ Vibrator::Vibrator(std::unique_ptr<HwApi> hwapi, std::unique_ptr<HwCal> hwcal)
             mSteadyTargetOdClamp[0] =
                 mHwCal->getSteadyAmpMax(&tempAmpMax)
                     ? round((STEADY_TARGET_G[0] / tempAmpMax) * longVoltageMax)
+                    : longVoltageMax;
+            mSteadyTargetOdClamp[2] =
+                mHwCal->getSteadyAmpMax(&tempAmpMax)
+                    ? round((STEADY_TARGET_G[2] / tempAmpMax) * longVoltageMax)
                     : longVoltageMax;
         }
         mHwCal->getSteadyShape(&shape);
@@ -439,7 +465,9 @@ ndk::ScopedAStatus Vibrator::on(int32_t timeoutMs,
         if (temperature > TEMP_UPPER_BOUND) {
             mSteadyConfig->odClamp = &mSteadyTargetOdClamp[0];
             mSteadyConfig->olLraPeriod = mSteadyOlLraPeriod;
-            if (!motionAwareness()) {
+            // TODO: b/162346934 This a compromise way to bypass the motion
+            // awareness delay
+            if ((timeoutMs > VIBRATION_MOTION_TIME_THRESHOLD) && (!motionAwareness())) {
                 return on(timeoutMs, RTP_MODE, mSteadyConfig, 2);
             }
         } else if (temperature < TEMP_LOWER_BOUND) {
