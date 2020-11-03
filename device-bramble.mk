@@ -17,7 +17,11 @@
 PRODUCT_HARDWARE := bramble
 
 ifeq ($(TARGET_PREBUILT_KERNEL),)
-    LOCAL_KERNEL := device/google/bramble-kernel/Image.lz4
+    ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
+        LOCAL_KERNEL := device/google/bramble-kernel/Image.lz4
+    else
+        LOCAL_KERNEL := device/google/bramble-kernel/vintf/Image.lz4
+    endif
 else
     LOCAL_KERNEL := $(TARGET_PREBUILT_KERNEL)
 endif
@@ -39,6 +43,7 @@ DEVICE_PACKAGE_OVERLAYS += device/google/bramble/bramble/overlay
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/audio/mixer_paths_bolero_snd.xml:$(TARGET_COPY_OUT_VENDOR)/etc/mixer_paths_bolero_snd.xml \
+    $(LOCAL_PATH)/audio/sound_trigger_mixer_paths.xml:$(TARGET_COPY_OUT_VENDOR)/etc/sound_trigger_mixer_paths.xml \
     $(LOCAL_PATH)/audio/audio_platform_info_bolero_snd.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_platform_info_bolero_snd.xml \
     $(LOCAL_PATH)/audio/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration.xml \
     $(LOCAL_PATH)/audio/audio_policy_configuration_a2dp_offload_disabled.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration_a2dp_offload_disabled.xml \
@@ -71,7 +76,7 @@ PRODUCT_COPY_FILES += \
 endif
 endif
 
-# CS35L41 SPEAKER AMP
+# B5 CS35L41 SPEAKER AMP
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/audio/cs35l41/cs35l41-dsp1-spk-cali.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/cs35l41-dsp1-spk-cali.bin \
     $(LOCAL_PATH)/audio/cs35l41/cs35l41-dsp1-spk-cali.wmfw:$(TARGET_COPY_OUT_VENDOR)/firmware/cs35l41-dsp1-spk-cali.wmfw \
@@ -82,6 +87,18 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/audio/cs35l41/cs35l41-dsp1-spk-diag.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/cs35l41-dsp1-spk-diag.bin \
     $(LOCAL_PATH)/audio/cs35l41/cs35l41-dsp1-spk-diag.wmfw:$(TARGET_COPY_OUT_VENDOR)/firmware/cs35l41-dsp1-spk-diag.wmfw \
     $(LOCAL_PATH)/audio/cs35l41/R-cs35l41-dsp1-spk-diag.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/R-cs35l41-dsp1-spk-diag.bin
+
+# B5M CS35L41 SPEAKER AMP
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/audio/cs35l41/B5mmW/cs35l41-mmW-dsp1-spk-cali.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/cs35l41-mmW-dsp1-spk-cali.bin \
+    $(LOCAL_PATH)/audio/cs35l41/B5mmW/cs35l41-mmW-dsp1-spk-cali.wmfw:$(TARGET_COPY_OUT_VENDOR)/firmware/cs35l41-mmW-dsp1-spk-cali.wmfw \
+    $(LOCAL_PATH)/audio/cs35l41/B5mmW/R-cs35l41-mmW-dsp1-spk-cali.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/R-cs35l41-mmW-dsp1-spk-cali.bin \
+    $(LOCAL_PATH)/audio/cs35l41/B5mmW/cs35l41-mmW-dsp1-spk-prot.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/cs35l41-mmW-dsp1-spk-prot.bin \
+    $(LOCAL_PATH)/audio/cs35l41/B5mmW/cs35l41-mmW-dsp1-spk-prot.wmfw:$(TARGET_COPY_OUT_VENDOR)/firmware/cs35l41-mmW-dsp1-spk-prot.wmfw \
+    $(LOCAL_PATH)/audio/cs35l41/B5mmW/R-cs35l41-mmW-dsp1-spk-prot.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/R-cs35l41-mmW-dsp1-spk-prot.bin \
+    $(LOCAL_PATH)/audio/cs35l41/B5mmW/cs35l41-mmW-dsp1-spk-diag.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/cs35l41-mmW-dsp1-spk-diag.bin \
+    $(LOCAL_PATH)/audio/cs35l41/B5mmW/cs35l41-mmW-dsp1-spk-diag.wmfw:$(TARGET_COPY_OUT_VENDOR)/firmware/cs35l41-mmW-dsp1-spk-diag.wmfw \
+    $(LOCAL_PATH)/audio/cs35l41/B5mmW/R-cs35l41-mmW-dsp1-spk-diag.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/R-cs35l41-mmW-dsp1-spk-diag.bin
 
 # Audio CS35L41 speaker calibration tool
 PRODUCT_PACKAGES += \
@@ -104,16 +121,15 @@ PRODUCT_COPY_FILES += \
 
 # Vibrator HAL
 PRODUCT_PRODUCT_PROPERTIES +=\
-    ro.vibrator.hal.config.dynamic=1 \
-    ro.vibrator.hal.click.duration=7 \
-    ro.vibrator.hal.tick.duration=7 \
-    ro.vibrator.hal.heavyclick.duration=7 \
-    ro.vibrator.hal.short.voltage=161 \
-    ro.vibrator.hal.long.voltage=161 \
-    ro.vibrator.hal.long.frequency.shift=10 \
-    ro.vibrator.hal.steady.shape=1 \
-    ro.vibrator.hal.lptrigger=0
-
+    ro.vendor.vibrator.hal.config.dynamic=1 \
+    ro.vendor.vibrator.hal.click.duration=7 \
+    ro.vendor.vibrator.hal.tick.duration=7 \
+    ro.vendor.vibrator.hal.heavyclick.duration=7 \
+    ro.vendor.vibrator.hal.short.voltage=161 \
+    ro.vendor.vibrator.hal.long.voltage=161 \
+    ro.vendor.vibrator.hal.long.frequency.shift=10 \
+    ro.vendor.vibrator.hal.steady.shape=1 \
+    ro.vendor.vibrator.hal.lptrigger=0
 
 # Dumpstate HAL
 PRODUCT_PACKAGES += \
@@ -129,21 +145,25 @@ PRODUCT_COPY_FILES += \
 
 # Recovery
 PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/init.recovery.device.rc:recovery/root/init.recovery.bramble.rc \
-    $(LOCAL_PATH)/thermal-engine-$(PRODUCT_HARDWARE).conf:$(TARGET_COPY_OUT_VENDOR)/etc/thermal-engine-$(PRODUCT_HARDWARE).conf
+    $(LOCAL_PATH)/init.recovery.device.rc:recovery/root/init.recovery.bramble.rc
 
 PRODUCT_PACKAGES += \
     sensors.$(PRODUCT_HARDWARE) \
 
 # Thermal HAL config
 PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/thermal_info_config_$(PRODUCT_HARDWARE).json:$(TARGET_COPY_OUT_VENDOR)/etc/thermal_info_config.json
+    $(LOCAL_PATH)/thermal_info_config_$(PRODUCT_HARDWARE).json:$(TARGET_COPY_OUT_VENDOR)/etc/thermal_info_config.json \
+    $(LOCAL_PATH)/thermal_info_config_$(PRODUCT_HARDWARE)_m.json:$(TARGET_COPY_OUT_VENDOR)/etc/thermal_info_config_m.json
 
 # Support to disable thermal protection at run time
 ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
     PRODUCT_COPY_FILES += \
         $(LOCAL_PATH)/init.hardware.chamber.rc.userdebug:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.$(PRODUCT_HARDWARE).chamber.rc
 endif
+
+# GPS ANTENNA_INFO configuration file
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/gnss_antenna_info.conf:$(TARGET_COPY_OUT_VENDOR)/etc/gnss_antenna_info.conf
 
 # Audio effects
 PRODUCT_PACKAGES += \
@@ -158,7 +178,22 @@ PRODUCT_COPY_FILES += \
 
 # Bluetooth Tx power caps for bramble
 PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/bluetooth_power_limits_bramble_us.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits_G025E.csv \
-    $(LOCAL_PATH)/bluetooth_power_limits_bramble_us.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits_G6QU3.csv \
-    $(LOCAL_PATH)/bluetooth_power_limits_bramble_jp.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits_G025I.csv \
-    $(LOCAL_PATH)/bluetooth_power_limits_bramble_eu.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits_G025H.csv
+    $(LOCAL_PATH)/bluetooth_power_limits_bramble_ROW.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits.csv \
+    $(LOCAL_PATH)/bluetooth_power_limits_bramble_us.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits_US.csv \
+    $(LOCAL_PATH)/bluetooth_power_limits_bramble_eu.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits_EU.csv \
+    $(LOCAL_PATH)/bluetooth_power_limits_bramble_jp.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits_JP.csv \
+    $(LOCAL_PATH)/bluetooth_power_limits_bramble_mmwave_ROW.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits_G6QU3.csv \
+    $(LOCAL_PATH)/bluetooth_power_limits_bramble_mmwave_ROW.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits_G6QU3_US.csv \
+    $(LOCAL_PATH)/bluetooth_power_limits_bramble_mmwave_ROW.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits_G6QU3_EU.csv \
+    $(LOCAL_PATH)/bluetooth_power_limits_bramble_mmwave_ROW.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits_G6QU3_JP.csv
+
+# SKU specific RROs
+PRODUCT_PACKAGES += \
+    SettingsOverlayG025H \
+    FrameworkOverlayG6QU3 \
+    SettingsOverlayG025I \
+    SettingsOverlayG6QU3 \
+    SettingsOverlayG025E
+
+# Keyboard bottom padding in dp for portrait mode
+PRODUCT_PRODUCT_PROPERTIES += ro.com.google.ime.kb_pad_port_b=10

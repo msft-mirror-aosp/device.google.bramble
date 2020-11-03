@@ -196,6 +196,9 @@ static void ProcessPcapDump(FILE *fp, pcap_dumper_t *dumper)
         char* strTmpTime = arrStrTime;
         struct pcap_pkthdr pcap_hdr;
         while ((strTime = strtok_r(strTmpTime, ".", &strTmpTime))) {
+          if(strTmpTime == NULL) {
+            break;
+          }
           time_t time;
           struct tm timeStruct;
           memset(&timeStruct, 0, sizeof(struct tm));
@@ -205,6 +208,9 @@ static void ProcessPcapDump(FILE *fp, pcap_dumper_t *dumper)
             pcap_hdr.ts.tv_sec = time;
           }
           strTimeMsec = strtok_r(strTmpTime, ".", &strTmpTime);
+          if(strTimeMsec == NULL) {
+            break;
+          }
           timeMSec = atoi(strTimeMsec);
           pcap_hdr.ts.tv_usec = timeMSec;
         }
@@ -349,6 +355,12 @@ static void *dumpModemThread(void *data)
                 modemLogAllDir.c_str());
         RunCommandToFd(STDOUT_FILENO, "Dump IPA log", {"/vendor/bin/sh", "-c", cmd});
 
+        //Dump QRTR0 log for QMI service state
+        snprintf(cmd, sizeof(cmd),
+                "cat /d/ipc_logging/qrtr_0/log > %s/qrtr_0_log",
+                modemLogAllDir.c_str());
+        RunCommandToFd(STDOUT_FILENO, "Dump QRTR0 log", {"/vendor/bin/sh", "-c", cmd});
+
         dumpLogs(STDOUT_FILENO, extendedLogDir, modemLogAllDir, 100, EXTENDED_LOG_PREFIX);
         android::base::SetProperty(MODEM_EFS_DUMP_PROPERTY, "false");
     }
@@ -402,19 +414,19 @@ static void DumpTouch(int fd) {
 
         // Mutual raw data
         snprintf(cmd, sizeof(cmd),
-                 "echo 13 00 > %s/stm_fts_cmd && cat %s/stm_fts_cmd",
+                 "echo 13 00 01 > %s/stm_fts_cmd && cat %s/stm_fts_cmd",
                  touch_spi_path, touch_spi_path);
         RunCommandToFd(fd, "Mutual Raw", {"/vendor/bin/sh", "-c", cmd});
 
         // Mutual strength data
         snprintf(cmd, sizeof(cmd),
-                 "echo 17 > %s/stm_fts_cmd && cat %s/stm_fts_cmd",
+                 "echo 17 01 > %s/stm_fts_cmd && cat %s/stm_fts_cmd",
                  touch_spi_path, touch_spi_path);
         RunCommandToFd(fd, "Mutual Strength", {"/vendor/bin/sh", "-c", cmd});
 
         // Self raw data
         snprintf(cmd, sizeof(cmd),
-                 "echo 15 00 > %s/stm_fts_cmd && cat %s/stm_fts_cmd",
+                 "echo 15 00 01> %s/stm_fts_cmd && cat %s/stm_fts_cmd",
                  touch_spi_path, touch_spi_path);
         RunCommandToFd(fd, "Self Raw", {"/vendor/bin/sh", "-c", cmd});
     }
@@ -455,6 +467,16 @@ static void DumpTouch(int fd) {
 	RunCommandToFd(fd, "Golden MS Raw",
                        {"/vendor/bin/sh", "-c",
                         "echo 34 > /proc/fts/driver_test && "
+                        "cat /proc/fts/driver_test"});
+        RunCommandToFd(fd, "Packaging Plant - HW reset",
+                       {"/vendor/bin/sh", "-c",
+                        "echo 01 FA 20 00 00 24 80 > /proc/fts/driver_test"});
+	RunCommandToFd(fd, "Packaging Plant - Hibernate Memory",
+                       {"/vendor/bin/sh", "-c",
+                        "echo 01 FA 20 00 00 68 08 > /proc/fts/driver_test"});
+	RunCommandToFd(fd, "Packaging Plant - Read 10 bytes from Address 0x00043F28",
+                       {"/vendor/bin/sh", "-c",
+                        "echo 02 FB 00 04 3F 28 00 0A 00 > /proc/fts/driver_test && "
                         "cat /proc/fts/driver_test"});
     }
 
@@ -507,6 +529,11 @@ static void DumpUFS(int fd) {
         DumpFileToFd(fd, "UFS Slow IO Write", "/sys/devices/platform/soc/" + bootdev + "/slowio_write_cnt");
         DumpFileToFd(fd, "UFS Slow IO Unmap", "/sys/devices/platform/soc/" + bootdev + "/slowio_unmap_cnt");
         DumpFileToFd(fd, "UFS Slow IO Sync", "/sys/devices/platform/soc/" + bootdev + "/slowio_sync_cnt");
+
+        RunCommandToFd(fd, "UFS err_stats", {"/vendor/bin/sh", "-c",
+                           "path=\"/sys/devices/platform/soc/" + bootdev + "/err_stats\"; "
+                           "for node in `ls $path/err_*`; do "
+                           "printf \"%s:%d\\n\" $(basename $node) $(cat $node); done;"});
 
         RunCommandToFd(fd, "UFS io_stats", {"/vendor/bin/sh", "-c",
                            "path=\"/sys/devices/platform/soc/" + bootdev + "/io_stats\"; "
@@ -649,19 +676,25 @@ Return<DumpstateStatus> DumpstateDevice::dumpstateBoard_1_1(const hidl_handle& h
     RunCommandToFd(fd, "CPU cpuidle", {"/vendor/bin/sh", "-c", "for cpu in /sys/devices/system/cpu/cpu*; do for d in $cpu/cpuidle/state*; do if [ ! -d $d ]; then continue; fi; echo \"$d: `cat $d/name` `cat $d/desc` `cat $d/time` `cat $d/usage`\"; done; done"});
     RunCommandToFd(fd, "Airbrush debug info", {"/vendor/bin/sh", "-c", "for f in `ls /sys/devices/platform/soc/c84000.i2c/i2c-4/4-0066/@(*curr|temperature|vbat|total_power)`; do echo \"$f: `cat $f`\" ; done; file=/d/airbrush/airbrush_sm/chip_state; echo \"$file: `cat $file`\""});
     DumpFileToFd(fd, "TCPM logs", "/d/usb/tcpm-usbpd0");
-    DumpFileToFd(fd, "PD Engine", "/d/logbuffer/usbpd");
-    DumpFileToFd(fd, "PPS", "/d/logbuffer/pps");
-    DumpFileToFd(fd, "BMS", "/d/logbuffer/ssoc");
-    DumpFileToFd(fd, "smblib", "/d/logbuffer/smblib");
-    DumpFileToFd(fd, "TTF", "/d/logbuffer/ttf");
+    DumpFileToFd(fd, "TCPM logs", "/dev/logbuffer_tcpm");
+    DumpFileToFd(fd, "PD Engine", "/dev/logbuffer_usbpd");
+    DumpFileToFd(fd, "PPS", "/dev/logbuffer_pps");
+    DumpFileToFd(fd, "BMS", "/dev/logbuffer_ssoc");
+    DumpFileToFd(fd, "smblib", "/dev/logbuffer_smblib");
+    DumpFileToFd(fd, "TTF", "/dev/logbuffer_ttf");
     DumpFileToFd(fd, "TTF details", "/sys/class/power_supply/battery/ttf_details");
     DumpFileToFd(fd, "TTF stats", "/sys/class/power_supply/battery/ttf_stats");
     DumpFileToFd(fd, "ipc-local-ports", "/d/msm_ipc_router/dump_local_ports");
     RunCommandToFd(fd, "USB Device Descriptors", {"/vendor/bin/sh", "-c", "cd /sys/bus/usb/devices/1-1 && cat product && cat bcdDevice; cat descriptors | od -t x1 -w16 -N96"});
     RunCommandToFd(fd, "Power supply properties", {"/vendor/bin/sh", "-c", "for f in `ls /sys/class/power_supply/*/uevent` ; do echo \"------ $f\\n`cat $f`\\n\" ; done"});
     RunCommandToFd(fd, "PMIC Votables", {"/vendor/bin/sh", "-c", "cat /sys/kernel/debug/pmic-votable/*/status"});
-    RunCommandToFd(fd, "Google Charger", {"/vendor/bin/sh", "-c", "cd /d/google_charger/; for f in `ls pps_*` ; do echo \"$f: `cat $f`\" ; done"});
-    RunCommandToFd(fd, "Google Battery", {"/vendor/bin/sh", "-c", "cd /d/google_battery/; for f in `ls ssoc_*` ; do echo \"$f: `cat $f`\" ; done"});
+
+    if (!PropertiesHelper::IsUserBuild()) {
+        RunCommandToFd(fd, "Google Charger", {"/vendor/bin/sh", "-c", "cd /d/google_charger/; for f in `ls pps_*` ; do echo \"$f: `cat $f`\" ; done"});
+        RunCommandToFd(fd, "Google Battery", {"/vendor/bin/sh", "-c", "cd /d/google_battery/; for f in `ls ssoc_*` ; do echo \"$f: `cat $f`\" ; done"});
+    }
+
+    RunCommandToFd(fd, "Battery EEPROM", {"/vendor/bin/sh", "-c", "xxd /sys/devices/platform/soc/98c000.i2c/i2c-1/1-0050/1-00500/nvmem"});
 
     RunCommandToFd(fd, "eSIM Status", {"/vendor/bin/sh", "-c", "od -t x1 /sys/firmware/devicetree/base/chosen/cdt/cdb2/esim"});
     DumpFileToFd(fd, "Modem Stat", "/data/vendor/modem_stat/debug.txt");
@@ -681,6 +714,12 @@ Return<DumpstateStatus> DumpstateDevice::dumpstateBoard_1_1(const hidl_handle& h
 
     // Keep this at the end as very long on not for humans
     DumpFileToFd(fd, "WLAN FW Log Symbol Table", "/vendor/firmware/Data.msc");
+
+    // Dump camera profiler log
+    RunCommandToFd(fd, "Camera Profiler Logs", {"/vendor/bin/sh", "-c", "for f in /data/vendor/camera/profiler/camx_*; do echo [$f]; cat \"$f\";done"});
+
+    // Dump fastrpc dma buffer size
+    DumpFileToFd(fd, "Fastrpc dma buffer", "/sys/kernel/fastrpc/total_dma_kb");
 
     if (modemThreadHandle) {
         pthread_join(modemThreadHandle, NULL);
